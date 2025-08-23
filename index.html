@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>網站連結清單</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{
+      --ring: #06b6d4;     /* 青藍聚焦 */
+      --brand: #06b6d4;   /* 主色：青藍 */
+      --brand-2: #8b5cf6; /* 輔色：柔紫 */
+      --text: #0f172a;    /* 字色深藍灰 */
+      --muted: #64748b;   /* 次要文字 */
+      --line: #e5e7eb;    /* 邊線 */
+      --card: #ffffff;    /* 卡片底 */
+      --bg: #ffffff;      /* 純白背景 */
+      --good: #10b981;
+      --bad: #ef4444;
+    }
+    body { color: var(--text); background: var(--bg); }
+    .animate-in { animation: fadeUp .45s ease both; }
+    @keyframes fadeUp { from { opacity:.0; transform: translateY(8px)} to {opacity:1; transform:none} }
+    .ring-focus:focus{
+      outline: none;
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 30%, transparent);
+    }
+    /* 卡片陰影與邊框（白底更清晰） */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      box-shadow: 0 6px 20px rgba(2, 6, 23, 0.06);
+    }
+    .card:hover { box-shadow: 0 10px 28px rgba(2, 6, 23, 0.10); }
+    /* 小選單浮層陰影 */
+    .menu-shadow { box-shadow: 0 12px 30px rgba(2,6,23,.16); }
+    /* 捲動條（亮色系） */
+    ::-webkit-scrollbar{ height:10px; width:10px }
+    ::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:999px }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-6xl mx-auto px-6 py-10 space-y-6">
+    <!-- Header -->
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">我的網站連結清單</h1>
+        <p class="text-slate-600 mt-2">支援自訂標籤、搜尋、拖曳排序、去重與網站小圖標。</p>
+      </div>
+      <!-- 搜尋 -->
+      <div class="flex gap-2 items-center">
+        <div class="relative">
+          <input id="searchInput" placeholder="搜尋名稱或網域"
+                 class="ring-focus w-72 max-w-[70vw] rounded-xl bg-white border border-gray-200 px-4 py-2.5 placeholder-slate-400 focus:border-cyan-300">
+          <span class="absolute right-3 top-2.5 text-slate-400">⌘K</span>
+        </div>
+        <button id="clearSearch" class="rounded-xl bg-gray-100 hover:bg-gray-200 text-slate-700 px-3 py-2 text-sm border border-gray-200">清除</button>
+      </div>
+    </header>
+
+    <!-- 類別切換 + 管理 -->
+   <div class="flex items-center justify-between">
+      <nav id="categoryTabs" class="flex flex-wrap gap-2"></nav>
+      <button id="manageTagsBtn" class="rounded-full bg-cyan-500 hover:bg-cyan-400 text-white px-4 py-2 text-sm">管理標籤</button>
+      <button id="toggleAddBtn" class="rounded-full bg-cyan-500 hover:bg-cyan-400 text-white px-4 py-2 text-sm">新增連結</button>
+    </div>
+
+    <!-- 管理標籤面板 -->
+    <section id="managePanel" class="hidden animate-in rounded-2xl card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">管理標籤</h2>
+        <button id="closeManage" class="rounded-lg bg-gray-100 hover:bg-gray-200 text-slate-700 px-3 py-1.5 text-sm border border-gray-200">關閉</button>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+        <div class="md:col-span-1">
+          <label class="block text-sm mb-1 text-slate-600">新增標籤</label>
+          <div class="flex gap-2">
+            <input id="newTagInput" type="text" placeholder="輸入新標籤"
+              class="ring-focus w-full rounded-xl bg-white border border-gray-200 px-3 py-2.5">
+            <button id="addNewTag" class="rounded-xl bg-violet-500 hover:bg-violet-400 text-white px-4">新增</button>
+          </div>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm mb-2 text-slate-600">已建立標籤（點擊垃圾桶刪除）</label>
+          <div id="tagList" class="flex flex-wrap gap-2"></div>
+          <p class="text-xs text-slate-500 mt-2">提醒：刪除後，套用該標籤的項目會自動改為「其他」。不能刪除「全部」。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 新增連結 -->
+    <section class="rounded-2xl card p-0 animate-in overflow-hidden">
+      <!-- 提示訊息置於收合區塊外，確保任何狀態都能看到 -->
+      <p id="msg" class="px-5 pt-3 text-sm hidden"></p>
+      <div id="addPanel" class="hidden p-5 sm:p-6">
+        <form id="linkForm" class="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div class="md:col-span-3">
+            <label class="block text-sm mb-1 text-slate-600">網站名稱</label>
+            <input id="nameInput" type="text" placeholder="例如：官方網站"
+                   class="ring-focus w-full rounded-xl bg-white border border-gray-200 px-4 py-2.5 placeholder-slate-400 focus:border-cyan-300"
+                   required />
+          </div>
+          <div class="md:col-span-5">
+            <label class="block text-sm mb-1 text-slate-600">網址</label>
+            <input id="urlInput" type="url" placeholder="例如：https://example.com"
+                   class="ring-focus w-full rounded-xl bg-white border border-gray-200 px-4 py-2.5 placeholder-slate-400 focus:border-cyan-300"
+                   required />
+          </div>
+          <div class="md:col-span-3">
+            <label class="block text-sm mb-1 text-slate-600">標籤</label>
+            <div class="flex gap-2">
+              <select id="categorySelect"
+                      class="ring-focus w-full rounded-xl bg-white border border-gray-200 px-3 py-2.5 focus:border-cyan-300">
+              </select>
+              <button id="addCatBtn" type="button"
+                class="rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white font-semibold px-3">＋</button>
+            </div>
+          </div>
+          <div class="md:col-span-1 flex items-end">
+            <button id="addBtn" type="submit"
+                    class="w-full rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white font-semibold px-4 py-2.5 transition-colors">
+              新增
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- 清單 -->
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">我的連結</h2>
+        <div class="text-sm text-slate-600">
+          共 <span id="count">0</span> 個
+        </div>
+      </div>
+      <div id="cards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <footer class="text-center text-slate-500 text-sm">
+      小提示：右上角垃圾桶可快速刪除；拖曳可重新排序；用上方搜尋可快速過濾。
+    </footer>
+  </div>
+
+  <script>
+    // 內建標籤（可自訂）
+    const DEFAULT_CATS = ["全部", "小說", "學習", "校務", "其他"];
+
+    // 初始資料（含預分標籤）
+    const initialLinks = [
+      { name: "ZeroJudge", url: "https://zerojudge.tw/", cat: "學習" },
+      { name: "臺北市教師歷程", url: "https://e-portfolio.cooc.tp.edu.tw/Portal.do?sec=6KuL5YWI55m75YWl77yB&dec=true", cat: "校務" },
+      { name: "Canva", url: "https://www.canva.com/", cat: "學習" },
+      { name: "PyPI", url: "https://pypi.org/", cat: "學習" },
+      { name: "台北市校務行政", url: "https://sschool.tp.edu.tw/Index.action", cat: "校務" },
+      { name: "ESJ Zone", url: "https://www.esjzone.cc/", cat: "小說" },
+      { name: "Linovelib", url: "https://www.linovelib.com/", cat: "小說" },
+      { name: "LightNovel.fun", url: "https://www.lightnovel.fun/", cat: "小說" },
+      { name: "Kakuyomu", url: "https://kakuyomu.jp/", cat: "小說" },
+      { name: "Syosetu", url: "https://syosetu.com/", cat: "小說" },
+      { name: "Comic Walker", url: "https://comic-walker.com/", cat: "小說" },
+      { name: "Comic Gardo", url: "https://comic-gardo.com/", cat: "小說" },
+      { name: "POPO 原創市集", url: "https://www.popo.tw/index", cat: "小說" },
+      { name: "UU 看書", url: "https://uukanshu.cc/class_9_1.html", cat: "小說" },
+      { name: "讀熱小說", url: "https://www.drxsw.com/", cat: "小說" },
+      { name: "輕文庫 qbtr", url: "https://www.qbtr.cc/", cat: "小說" },
+      { name: "Novel543", url: "https://www.novel543.com/", cat: "小說" },
+      { name: "JPXS123", url: "https://www.jpxs123.com/", cat: "小說" },
+      { name: "Book543", url: "https://www.book543.net/", cat: "小說" },
+      { name: "台大開放式課程", url: "https://ocw.aca.ntu.edu.tw/", cat: "學習" },
+      { name: "Google 學術搜尋", url: "https://scholar.google.com/", cat: "學習" },
+      { name: "VS Code", url: "https://code.visualstudio.com/", cat: "學習" },
+      { name: "W3Schools CSS", url: "https://www.w3schools.com/css/", cat: "學習" },
+      { name: "CSS 筆記", url: "https://hackmd.io/@AndyChiang/CSSnote", cat: "學習" },
+      { name: "臺北市教研院課程", url: "https://cerclearning.tp.edu.tw/classical/datapage/195", cat: "校務" },
+      { name: "COOC+", url: "https://coocplus.tp.edu.tw/", cat: "校務" },
+      { name: "iLearning", url: "https://web.jhenggao.com/iLearning/Login.aspx?c=500", cat: "校務" },
+      { name: "台大台語", url: "https://tai2.ntu.edu.tw/", cat: "學習" },
+      { name: "Algodoo", url: "https://www.algodoo.com/", cat: "學習" },
+      { name: "Replit", url: "https://replit.com/", cat: "學習" },
+      { name: "AutoHotkey 論壇", url: "https://www.autohotkey.com/boards/", cat: "學習" },
+      { name: "edX", url: "https://www.edx.org/", cat: "學習" },
+      { name: "ewant", url: "https://www.ewant.org/", cat: "學習" },
+      { name: "iFreeSite 編輯器", url: "https://www.ifreesite.com/editor/", cat: "學習" },
+      { name: "Google Colab", url: "https://colab.research.google.com/#scrollTo=Wf5KrEb6vrkR", cat: "學習" },
+      { name: "TicketPlus", url: "https://ticketplus.com.tw/", cat: "其他" },
+      { name: "貓咪汽車", url: "https://www.catcarbuy.com/", cat: "其他" },
+    ];
+
+    // 儲存鍵
+    const STORAGE_KEY_ITEMS = "link-cards-v5-items";
+    const STORAGE_KEY_CATS = "link-cards-v5-cats";
+    const STORAGE_KEY_FILTER = "link-cards-v5-filter";
+    const STORAGE_KEY_SEARCH = "link-cards-v5-search";
+
+    // 狀態
+    let items = [];      // {id, name, url, cat}
+    let cats = [];       // ["小說", "學習", ...]（不含「全部」）
+    let filterCat = "全部";
+    let searchText = "";
+
+    // 工具：主網域
+    function extractDomain(url) {
+      try {
+        const u = new URL(url);
+        const parts = u.hostname.split(".");
+        if (parts.length >= 3) {
+          const commons = ["www", "m", "dev", "app", "blog"];
+          if (commons.includes(parts[0])) parts.shift();
+        }
+        return parts.join(".");
+      } catch { return url; }
+    }
+
+    // 工具：favicon 來源
+    function faviconFor(url) {
+      try {
+        const u = new URL(url);
+        const primary = `https://www.google.com/s2/favicons?domain=${u.origin}&sz=64`;
+        const fallback = `${u.origin}/favicon.ico`;
+        return { primary, fallback, domain: extractDomain(url) };
+      } catch {
+        return { primary: "", fallback: "", domain: url };
+      }
+    }
+
+    // 工具
+    const uid = () => Math.random().toString(36).slice(2, 10);
+
+    // 去重（以標準化後的網址為準）
+    function normalizeUrl(url){
+      try {
+        const u = new URL(url);
+        u.hash = "";
+        ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","gclid","fbclid","wbraid","srsltid"].forEach(p=>u.searchParams.delete(p));
+        return u.toString();
+      } catch { return url.trim(); }
+    }
+
+    // 初始化
+    function load() {
+      // 標籤
+      const savedCats = JSON.parse(localStorage.getItem(STORAGE_KEY_CATS) || "null");
+      cats = Array.isArray(savedCats) ? savedCats : DEFAULT_CATS.slice(1); // 去掉「全部」
+
+      // 項目
+      const savedItems = JSON.parse(localStorage.getItem(STORAGE_KEY_ITEMS) || "null");
+      if (Array.isArray(savedItems)) {
+        items = savedItems;
+      } else {
+        // 初次導入：套上 id 與去重
+        const map = new Map();
+        initialLinks.forEach(l => {
+          const key = normalizeUrl(l.url);
+          if (!map.has(key)) map.set(key, { id: uid(), name: l.name, url: key, cat: l.cat || "其他" });
+        });
+        items = [...map.values()];
+        save();
+      }
+
+      // 篩選與搜尋
+      filterCat = localStorage.getItem(STORAGE_KEY_FILTER) || "全部";
+      searchText = localStorage.getItem(STORAGE_KEY_SEARCH) || "";
+
+      renderCats();
+      render();
+      document.getElementById("searchInput").value = searchText;
+      renderManagePanel();
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(items));
+      localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(cats));
+      localStorage.setItem(STORAGE_KEY_FILTER, filterCat);
+      localStorage.setItem(STORAGE_KEY_SEARCH, searchText);
+    }
+
+    // 類別籤
+    function renderCats() {
+      const tabs = document.getElementById("categoryTabs");
+      tabs.innerHTML = "";
+      const allCats = ["全部", ...cats];
+      allCats.forEach(c => {
+        const active = c === filterCat;
+        const btn = document.createElement("button");
+        btn.className = (active
+          ? "bg-cyan-500 text-white border-cyan-400"
+          : "bg-gray-100 text-slate-700 hover:bg-gray-200 border-gray-200")
+          + " rounded-full px-3 py-1.5 text-sm border transition-colors";
+        btn.textContent = c;
+        btn.onclick = () => { filterCat = c; save(); render(); };
+        tabs.appendChild(btn);
+      });
+
+      // 表單下拉
+      const sel = document.getElementById("categorySelect");
+      sel.innerHTML = "";
+      cats.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c; opt.textContent = c;
+        sel.appendChild(opt);
+      });
+      if (!cats.includes("其他")) { cats.push("其他"); save(); renderCats(); return; }
+    }
+
+    // 管理面板
+    function renderManagePanel(){
+      const wrap = document.getElementById("tagList");
+      wrap.innerHTML = "";
+      cats.forEach(c => {
+        const pill = document.createElement("span");
+        pill.className = "inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-slate-700";
+        pill.innerHTML = `<span>${c}</span>
+          <button title="刪除" class="delete-tag rounded-full bg-white border border-gray-200 hover:bg-gray-100 text-slate-700 px-2 py-0.5 text-xs">🗑</button>`;
+        pill.querySelector(".delete-tag").onclick = () => {
+          // 刪除標籤：把套用該標籤的項目改成「其他」
+          const idx = cats.indexOf(c);
+          if (idx === -1) return;
+          cats.splice(idx,1);
+          items = items.map(it => it.cat === c ? { ...it, cat: "其他" } : it);
+          if (filterCat === c) filterCat = "全部";
+          save();
+          renderCats();
+          render();
+          renderManagePanel();
+          toast(`已刪除標籤「${c}」並將項目移至「其他」`,"good");
+        };
+        wrap.appendChild(pill);
+      });
+    }
+
+    // 管理標籤開合
+    document.getElementById("manageTagsBtn").addEventListener("click", ()=>{
+      document.getElementById("managePanel").classList.toggle("hidden");
+    });
+    document.getElementById("closeManage").addEventListener("click", ()=>{
+      document.getElementById("managePanel").classList.add("hidden");
+    });
+    document.getElementById("addNewTag").addEventListener("click", ()=>{
+      const input = document.getElementById("newTagInput");
+      const name = input.value.trim();
+      if (!name) return;
+      if (["全部", ...cats].includes(name)) { toast("此標籤已存在","bad"); return; }
+      cats.push(name);
+      input.value = "";
+      save();
+      renderCats();
+      renderManagePanel();
+      toast("已新增標籤","good");
+    });
+
+    // 新增連結開合
+    document.getElementById("toggleAddBtn").addEventListener("click", ()=>{
+      document.getElementById("addPanel").classList.toggle("hidden");
+    });
+
+    // 新增標籤（表單＋按鈕）
+    document.getElementById("addCatBtn").addEventListener("click", () => {
+      const name = prompt("輸入新標籤名稱：");
+      if (!name) return;
+      const clean = name.trim();
+      if (!clean) return;
+      if (["全部", ...cats].includes(clean)) { toast("此標籤已存在", "bad"); return; }
+      cats.push(clean);
+      save();
+      renderCats();
+      // 自動選到新標籤
+      const sel = document.getElementById("categorySelect");
+      sel.value = clean;
+      toast("已新增標籤", "good");
+    });
+
+    // 卡片
+    function createCard(item) {
+      const card = document.createElement("div");
+      card.className = "group relative rounded-2xl card p-4 transition-shadow animate-in";
+      card.draggable = true;
+      card.dataset.id = item.id;
+
+      const header = document.createElement("div");
+      header.className = "flex items-start gap-3";
+
+      // 圖標
+      const iconWrap = document.createElement("div");
+      iconWrap.className = "shrink-0 w-10 h-10 rounded-xl bg-white border border-gray-200 grid place-items-center overflow-hidden";
+      const fav = document.createElement("img");
+      const favInfo = faviconFor(item.url);
+      fav.alt = favInfo.domain + " 圖標";
+      fav.className = "w-6 h-6";
+      fav.src = favInfo.primary;
+      fav.referrerPolicy = "no-referrer";
+      fav.onerror = function(){
+        if (fav.src !== favInfo.fallback) {
+          fav.src = favInfo.fallback;
+        } else {
+          fav.src = '';
+          fav.alt = 'Image failed to load';
+          fav.style.display = 'none';
+          iconWrap.innerHTML = '';
+          const badge = document.createElement('div');
+          badge.textContent = (item.name || favInfo.domain).trim().charAt(0).toUpperCase();
+          badge.className = 'w-10 h-10 grid place-items-center rounded-xl bg-gradient-to-tr from-cyan-400 to-violet-400 text-white font-bold';
+          iconWrap.appendChild(badge);
+        }
+      };
+      iconWrap.appendChild(fav);
+
+      // 主內容（標題 + 刪除圖示 + 網域）
+      const main = document.createElement("div");
+      main.className = "flex-1 min-w-0";
+
+      const title = document.createElement("a");
+      title.href = item.url;
+      title.target = "_blank";
+      title.rel = "noopener noreferrer";
+      title.className = "font-semibold leading-snug text-slate-800 hover:text-cyan-700 transition-colors";
+      title.textContent = item.name || favInfo.domain;
+
+      const domain = document.createElement("div");
+      domain.className = "text-sm text-slate-500 mt-0.5";
+      domain.textContent = favInfo.domain;
+
+      main.appendChild(title);
+      main.appendChild(domain);
+
+      // 右上角：刪除圖示與標籤
+      const menuWrap = document.createElement("div");
+      menuWrap.className = "absolute right-3 top-3 flex items-center gap-2";
+
+      const delIcon = document.createElement("button");
+      delIcon.className = "shrink-0 rounded-full border border-gray-200 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 px-2 py-1 text-xs z-10";
+      delIcon.title = "刪除此連結";
+      delIcon.textContent = "🗑";
+      delIcon.onclick = (e)=>{ e.preventDefault(); e.stopPropagation(); removeItem(item.id); };
+
+      const chip = document.createElement("span");
+      chip.className = "rounded-full bg-gray-100 border border-gray-200 px-2.5 py-1 text-xs text-slate-700";
+      chip.textContent = item.cat || "其他";
+
+      menuWrap.appendChild(delIcon);
+      menuWrap.appendChild(chip);
+
+      // 底部：前往
+      const go = document.createElement("a");
+      go.href = item.url;
+      go.target = "_blank";
+      go.rel = "noopener noreferrer";
+      go.className = "mt-3 inline-flex items-center gap-2 text-sm text-cyan-700 hover:text-cyan-600";
+      go.innerHTML = `前往網站 <span aria-hidden>↗</span>`;
+
+      header.appendChild(iconWrap);
+      header.appendChild(main);
+      card.appendChild(header);
+      card.appendChild(menuWrap);
+      card.appendChild(go);
+
+      // 拖曳排序
+      card.addEventListener("dragstart", (e) => {
+        card.classList.add("opacity-60");
+        e.dataTransfer.setData("text/plain", item.id);
+      });
+      card.addEventListener("dragend", () => card.classList.remove("opacity-60"));
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        card.classList.add("ring-2");
+      });
+      card.addEventListener("dragleave", () => card.classList.remove("ring-2"));
+      card.addEventListener("drop", (e) => {
+        e.preventDefault();
+        card.classList.remove("ring-2");
+        const fromId = e.dataTransfer.getData("text/plain");
+        const toId = item.id;
+        reorder(fromId, toId);
+      });
+
+      return card;
+    }
+
+    // 渲染
+    function render() {
+      const wrap = document.getElementById("cards");
+      const count = document.getElementById("count");
+
+      // 篩選與搜尋
+      const list = items.filter(it => {
+        const catOk = filterCat === "全部" ? true : (it.cat || "其他") === filterCat;
+        const text = (it.name + " " + extractDomain(it.url)).toLowerCase();
+        const searchOk = !searchText ? true : text.includes(searchText.toLowerCase());
+        return catOk && searchOk;
+      });
+
+      // 現有節點映射
+      const existing = new Map([...wrap.children].map(c => [c.dataset.id, c]));
+      const seen = new Set();
+
+      list.forEach(it => {
+        let node = existing.get(it.id);
+        if (!node) {
+          node = createCard(it);
+          wrap.appendChild(node);
+        } else {
+          // 更新主要文字與標籤膠囊
+          const link = node.querySelector("a.font-semibold");
+          const domain = node.querySelector(".text-sm.text-slate-500");
+          const chip = node.querySelector("span.rounded-full");
+          if (link && link.textContent !== (it.name || extractDomain(it.url))) link.textContent = it.name || extractDomain(it.url);
+          if (link && link.href !== it.url) link.href = it.url;
+          if (domain && domain.textContent !== extractDomain(it.url)) domain.textContent = extractDomain(it.url);
+          if (chip && chip.textContent !== (it.cat || "其他")) chip.textContent = it.cat || "其他";
+        }
+        seen.add(it.id);
+      });
+
+      // 移除不在列表中的節點
+      [...wrap.children].forEach(c => {
+        if (!seen.has(c.dataset.id)) wrap.removeChild(c);
+      });
+
+      // 依 items 順序重新排列顯示的節點
+      const order = new Map(items.map((it, i) => [it.id, i]));
+      [...wrap.children]
+        .sort((a, b) => order.get(a.dataset.id) - order.get(b.dataset.id))
+        .forEach(n => wrap.appendChild(n));
+
+      count.textContent = list.length;
+    }
+
+    // 新增 / 刪除 / 排序
+    function addItem(name, url, cat) {
+      const u = normalizeUrl(url);
+      if (items.some(it => normalizeUrl(it.url) === u)) {
+        toast("已存在相同網址，已略過", "bad");
+        return;
+      }
+      items.push({ id: uid(), name, url: u, cat: cat || "其他" });
+      save(); render(); toast("已新增", "good");
+    }
+    function removeItem(id) {
+      const before = items.length;
+      items = items.filter(i => i.id !== id);
+      save(); render();
+      toast(before !== items.length ? "已刪除" : "找不到這個項目", before !== items.length ? "good" : "bad");
+    }
+    function reorder(fromId, toId) {
+      if (fromId === toId) return;
+      const fromIndex = items.findIndex(i => i.id === fromId);
+      const toIndex = items.findIndex(i => i.id === toId);
+      if (fromIndex === -1 || toIndex === -1) return;
+      const [moved] = items.splice(fromIndex, 1);
+      items.splice(toIndex, 0, moved);
+      save(); render();
+    }
+
+    // 表單處理
+    document.getElementById("linkForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = document.getElementById("nameInput").value.trim();
+      const url = document.getElementById("urlInput").value.trim();
+      const cat = document.getElementById("categorySelect").value || "其他";
+      if (!name || !url) return;
+      try {
+        const u = new URL(url);
+        if (!/^https?:$/.test(u.protocol)) throw new Error("bad");
+      } catch {
+        toast("請輸入正確的網址（需含 https://）", "bad");
+        return;
+      }
+      addItem(name, url, cat);
+      e.target.reset();
+      document.getElementById("nameInput").focus();
+    });
+
+    // 搜尋
+    const searchInput = document.getElementById("searchInput");
+    const clearBtn = document.getElementById("clearSearch");
+    searchInput.addEventListener("input", () => { searchText = searchInput.value; localStorage.setItem(STORAGE_KEY_SEARCH, searchText); render(); });
+    clearBtn.addEventListener("click", () => { searchText = ""; searchInput.value = ""; localStorage.setItem(STORAGE_KEY_SEARCH, ""); render(); });
+    // 快捷鍵
+    document.addEventListener("keydown", (e)=>{
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase()==="k") {
+        e.preventDefault();
+        searchInput.focus();
+      }
+    });
+
+    // 提示訊息
+    function toast(text, type="good") {
+      const el = document.getElementById("msg");
+      el.textContent = text;
+      el.className = "px-5 pt-3 text-sm " + (type === "good" ? "text-emerald-600" : "text-rose-600");
+      el.classList.remove("hidden");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.add("hidden"), 1400);
+    }
+
+    // 載入
+    load();
+  </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9737d3237377f07b',t:'MTc1NTkyMjkwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
